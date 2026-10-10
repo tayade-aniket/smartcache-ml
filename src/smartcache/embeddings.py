@@ -4,22 +4,25 @@ Loads sentence embedding model and computes normalized vectors and cosine simila
 """
 
 import threading
-from typing import List, Union
+from typing import List, Union, Optional, Any
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from smartcache.config import settings
 
-_MODEL_INSTANCE: SentenceTransformer = None
+_MODEL_INSTANCE: Optional[Any] = None
 _MODEL_LOCK = threading.Lock()
 
 
-def get_embedding_model(model_name: str = settings.embedding_model_name) -> SentenceTransformer:
+def get_embedding_model(model_name: str = settings.embedding_model_name):
     """Lazy thread-safe singleton loader for the sentence embedding model."""
     global _MODEL_INSTANCE
     if _MODEL_INSTANCE is None:
         with _MODEL_LOCK:
             if _MODEL_INSTANCE is None:
-                _MODEL_INSTANCE = SentenceTransformer(model_name)
+                from sentence_transformers import SentenceTransformer
+                try:
+                    _MODEL_INSTANCE = SentenceTransformer(model_name, local_files_only=True)
+                except Exception:
+                    _MODEL_INSTANCE = SentenceTransformer(model_name)
     return _MODEL_INSTANCE
 
 

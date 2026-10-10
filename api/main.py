@@ -13,11 +13,13 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, HTTPException, Query, status, Response
+from fastapi import FastAPI, HTTPException, Query, status, Response, Request
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 from smartcache.config import settings
 from smartcache.service import SmartCacheService
+from api.dashboard import get_dashboard_html
 
 app = FastAPI(
     title="SmartCache ML API",
@@ -141,13 +143,32 @@ class RootResponse(BaseModel):
 # API Endpoints
 # ---------------------------------------------------------------------------
 
-@app.get("/", response_model=RootResponse, tags=["General"])
-def root_endpoint():
+@app.get("/", tags=["General"])
+def root_endpoint(request: Request, format: Optional[str] = None):
     """
-    Root endpoint for SmartCache ML.
-    Provides API metadata, health status, documentation links, and route directory.
+    Root endpoint for SmartCache ML (http://127.0.0.1:8000/).
+    Serves the interactive recruiter-friendly dashboard for browser clients,
+    or the structured RootResponse for JSON API clients.
     """
+    accept = request.headers.get("accept", "")
+    # Explicit JSON format requested
+    if format == "json":
+        return RootResponse()
+    
+    # If visited from a browser (Accept contains text/html) or format=html
+    if "text/html" in accept or format == "html":
+        return HTMLResponse(content=get_dashboard_html(), status_code=200)
+
+    # Default for API clients / automated test suites
     return RootResponse()
+
+
+@app.get("/dashboard", response_class=HTMLResponse, tags=["General"])
+def dashboard_endpoint():
+    """
+    Direct route to access the interactive recruiter-friendly Dashboard.
+    """
+    return HTMLResponse(content=get_dashboard_html(), status_code=200)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
