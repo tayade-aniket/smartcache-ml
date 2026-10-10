@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smartcache-ml"
+version = "0.1.0"
+description = "Semantic Caching and Cost-Aware LLM Routing for Efficient Inference"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "M.Sc. ML Engineer Candidate" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]
+addopts = "-v --tb=short"

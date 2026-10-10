@@ -1,0 +1,62 @@
+[
+  {
+    "Policy": "1. Baseline (Always Large, No Cache)",
+    "Requests": 55,
+    "Cache Hit Rate (%)": 0.0,
+    "Total Cost ($)": 0.01575,
+    "Cost Savings (%)": 0.0,
+    "Mean Latency (ms)": 42.4,
+    "P50 Latency (ms)": 40.5,
+    "P95 Latency (ms)": 47.8,
+    "Latency Reduction (%)": 0.0,
+    "Quality Score (F1)": 0.2394
+  },
+  {
+    "Policy": "2. Exact Cache + Large Model",
+    "Requests": 55,
+    "Cache Hit Rate (%)": 40.0,
+    "Total Cost ($)": 0.00943,
+    "Cost Savings (%)": 40.15,
+    "Mean Latency (ms)": 24.4,
+    "P50 Latency (ms)": 40.2,
+    "P95 Latency (ms)": 41.0,
+    "Latency Reduction (%)": 42.38,
+    "Quality Score (F1)": 0.2394
+  },
+  {
+    "Policy": "3. Semantic Cache + Large Model",
+    "Requests": 55,
+    "Cache Hit Rate (%)": 70.9,
+    "Total Cost ($)": 0.00459,
+    "Cost Savings (%)": 70.89,
+    "Mean Latency (ms)": 55.0,
+    "P50 Latency (ms)": 40.9,
+    "P95 Latency (ms)": 124.5,
+    "Latency Reduction (%)": -29.89,
+    "Quality Score (F1)": 0.2678
+  },
+  {
+    "Policy": "4. Always Small Model (No Cache)",
+    "Requests": 55,
+    "Cache Hit Rate (%)": 0.0,
+    "Total Cost ($)": 0.00157,
+    "Cost Savings (%)": 90.0,
+    "Mean Latency (ms)": 16.1,
+    "P50 Latency (ms)": 15.6,
+    "P95 Latency (ms)": 19.2,
+    "Latency Reduction (%)": 62.0,
+    "Quality Score (F1)": 0.2394
+  },
+  {
+    "Policy": "5. SmartCache ML (Semantic + Router)",
+    "Requests": 55,
+    "Cache Hit Rate (%)": 70.9,
+    "Total Cost ($)": 0.00244,
+    "Cost Savings (%)": 84.49,
+    "Mean Latency (ms)": 35.8,
+    "P50 Latency (ms)": 38.0,
+    "P95 Latency (ms)": 50.7,
+    "Latency Reduction (%)": 15.4,
+    "Quality Score (F1)": 0.2678
+  }
+]

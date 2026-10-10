@@ -1,0 +1,6 @@
+Policy,Requests,Cache Hit Rate (%),Total Cost ($),Cost Savings (%),Mean Latency (ms),P50 Latency (ms),P95 Latency (ms),Latency Reduction (%),Quality Score (F1)
+"1. Baseline (Always Large, No Cache)",55,0.0,0.01575,0.0,42.4,40.5,47.8,0.0,0.2394
+2. Exact Cache + Large Model,55,40.0,0.00943,40.15,24.4,40.2,41.0,42.38,0.2394
+3. Semantic Cache + Large Model,55,70.9,0.00459,70.89,55.0,40.9,124.5,-29.89,0.2678
+4. Always Small Model (No Cache),55,0.0,0.00157,90.0,16.1,15.6,19.2,62.0,0.2394
+5. SmartCache ML (Semantic + Router),55,70.9,0.00244,84.49,35.8,38.0,50.7,15.4,0.2678

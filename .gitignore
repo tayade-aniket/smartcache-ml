@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data & Models (keep processed reproducible outputs or gitignored caches)
+data/cache.db
+*.sqlite3
+*.db
+*.onnx
+models/*.pkl
+models/*.joblib
+!reports/.gitkeep
+
+# Environment & OS
+.env
+.DS_Store
+Thumbs.db

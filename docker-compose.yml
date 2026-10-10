@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: smartcache-api
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_PROVIDER=mock
+      - CACHE_DB_PATH=/app/data/cache.db
+      - SIMILARITY_THRESHOLD=0.85
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    container_name: smartcache-dashboard
+    command: streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - LLM_PROVIDER=mock
+      - CACHE_DB_PATH=/app/data/cache.db
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    depends_on:
+      - api
+    restart: unless-stopped

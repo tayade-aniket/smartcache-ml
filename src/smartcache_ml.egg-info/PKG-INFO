@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: smartcache-ml
+Version: 0.1.0
+Summary: Semantic Caching and Cost-Aware LLM Routing for Efficient Inference
+Author: M.Sc. ML Engineer Candidate
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
