@@ -1,3 +1,16 @@
+---
+title: SmartCache ML Monitor
+emoji: ⚡
+colorFrom: indigo
+colorTo: blue
+sdk: streamlit
+sdk_version: "1.28.0"
+app_file: app.py
+pinned: false
+license: mit
+short_description: Semantic Caching and Cost-Aware LLM Routing Analytics Dashboard
+---
+
 # SmartCache ML: Semantic Caching and Cost-Aware LLM Routing
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
