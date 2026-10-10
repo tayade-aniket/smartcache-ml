@@ -4,9 +4,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B.svg)](https://streamlit.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-> **Portfolio Project for Junior/Mid ML Engineers**  
-> An educational, end-to-end, reproducible Machine Learning Engineering system designed to curb unnecessary LLM inference expenses and latency spikes through **vectorized semantic caching** and **complexity-aware model routing**.
+[![Deploy Guide](https://img.shields.io/badge/Deploy-100%25%20Free-brightgreen.svg)](DEPLOYMENT.md)
 
 ---
 
@@ -270,7 +268,23 @@ The `notebooks/` directory contains 6 self-contained, reproducible Jupyter Noteb
 
 ---
 
-## 9. Architectural Limitations & Production Roadmap
+## 9. Free Cloud Deployment (Zero Cost)
+
+SmartCache ML is engineered to deploy seamlessly on 100% free hosting platforms without requiring a credit card:
+
+| Target Platform | Component Deployed | Free Resource Allowance | Setup Time |
+|---|---|---|---|
+| **[Hugging Face Spaces](DEPLOYMENT.md#3-option-1-hugging-face-spaces-recommended)** | Streamlit Dashboard & ML | **2 vCPU, 16 GB RAM** (Best for ML) | 3 mins |
+| **[Streamlit Community Cloud](DEPLOYMENT.md#4-option-2-streamlit-community-cloud)** | Analytics Monitor | **1 vCPU, 1 GB RAM** (1-Click GitHub deploy) | 2 mins |
+| **[Render](DEPLOYMENT.md#5-option-3-render-fastapi-backend)** | FastAPI REST Backend | **512 MB RAM**, Free HTTPS & Swagger UI | 3 mins |
+| **[Koyeb](DEPLOYMENT.md#6-option-4-koyeb-free-docker-container)** | Docker Container | **512 MB RAM Nano**, continuous uptime | 4 mins |
+| **[Cloudflare Tunnel](DEPLOYMENT.md#7-option-5-free-hybrid-mode-with-cloudflare-tunnel)** | Hybrid Local Ollama + Public URL | Unlimited bandwidth, exposes local GPU LLM | 2 mins |
+
+👉 Read the complete step-by-step instructions with copy-paste commands in **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+
+---
+
+## 10. Architectural Limitations & Production Roadmap
 
 In a Machine Learning Engineer interview, it is vital to demonstrate awareness of system constraints and production scale-up strategies:
 
@@ -289,7 +303,7 @@ In a Machine Learning Engineer interview, it is vital to demonstrate awareness o
 
 ---
 
-## 10. Concepts Checklist for Technical Interviews
+## 11. Concepts Checklist for Technical Interviews
 
 - [x] **Bi-encoder vs Cross-encoder**: Why bi-encoders allow precomputing and caching vectors for $O(1)$/$O(N)$ dot product search, while cross-encoders require full forward-pass concatenation.
 - [x] **$L_2$ Normalization & Dot Product**: Why normalizing vectors to unit length transforms cosine similarity into a single hardware-accelerated matrix multiplication.

@@ -30,3 +30,6 @@ models/*.joblib
 .env
 .DS_Store
 Thumbs.db
+
+# Deployment
+DEPLOYMENT.MD

@@ -4,6 +4,15 @@ Displays real-time metrics, cache statistics, policy comparison,
 and provides an interactive query test interface.
 """
 
+import sys
+from pathlib import Path
+
+# Ensure src is discoverable when deployed directly on cloud platforms
+ROOT_DIR = Path(__file__).resolve().parent.parent
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 import time
 import pandas as pd
 import numpy as np

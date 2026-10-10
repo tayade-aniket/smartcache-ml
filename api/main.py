@@ -3,8 +3,18 @@ FastAPI REST API for SmartCache ML.
 Provides endpoints for querying, cache inspection, invalidation, and metrics.
 """
 
+import sys
+from pathlib import Path
+
+# Ensure src is discoverable when deployed directly on cloud platforms
+ROOT_DIR = Path(__file__).resolve().parent.parent
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, status, Response
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 from smartcache.config import settings
 from smartcache.service import SmartCacheService
@@ -13,6 +23,15 @@ app = FastAPI(
     title="SmartCache ML API",
     description="Semantic Caching and Cost-Aware LLM Routing REST Service",
     version="0.1.0",
+)
+
+# Cross-Origin Resource Sharing (CORS) support for web clients and dashboards
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Global service instance
@@ -94,11 +113,53 @@ class HealthResponse(BaseModel):
     similarity_threshold: float
 
 
+class RootResponse(BaseModel):
+    name: str = "SmartCache ML API"
+    status: str = "healthy"
+    version: str = "0.1.0"
+    description: str = "Semantic Caching and Cost-Aware LLM Routing REST Service"
+    documentation_url: str = "/docs"
+    openapi_url: str = "/openapi.json"
+    endpoints: Dict[str, str] = Field(
+        default_factory=lambda: {
+            "root": "GET /",
+            "health": "GET /health",
+            "query": "POST /query",
+            "cache_lookup": "POST /cache/lookup",
+            "cache_entries": "GET /cache/entries",
+            "cache_stats": "GET /cache/stats",
+            "cache_clear": "DELETE /cache",
+            "metrics": "GET /metrics",
+            "metrics_reset": "POST /metrics/reset",
+            "docs_swagger": "GET /docs",
+            "docs_redoc": "GET /redoc",
+        }
+    )
+
+
 # ---------------------------------------------------------------------------
 # API Endpoints
 # ---------------------------------------------------------------------------
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/", response_model=RootResponse, tags=["General"])
+def root_endpoint():
+    """
+    Root endpoint for SmartCache ML.
+    Provides API metadata, health status, documentation links, and route directory.
+    """
+    return RootResponse()
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+@app.head("/favicon.ico", include_in_schema=False)
+def favicon_endpoint():
+    """
+    Handle browser favicon requests with 204 No Content to eliminate 404 log noise.
+    """
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get("/health", response_model=HealthResponse, tags=["Monitoring"])
 def health_check():
     """Service health and current cache size."""
     stats = service.cache.get_stats()
@@ -108,6 +169,52 @@ def health_check():
         total_cached_entries=stats["total_cached_entries"],
         similarity_threshold=stats["similarity_threshold"]
     )
+
+
+@app.get("/query", include_in_schema=False)
+def query_guidance():
+    """Helpful guidance for clients issuing GET requests on /query."""
+    return {
+        "status": "info",
+        "message": "The /query endpoint requires an HTTP POST request with a JSON payload.",
+        "example_payload": {
+            "query": "What is the capital of France?",
+            "namespace": "default",
+            "bypass_cache": False,
+            "force_route": None,
+            "is_cacheable": True
+        },
+        "docs_url": "/docs"
+    }
+
+
+@app.get("/cache/lookup", include_in_schema=False)
+def cache_lookup_guidance():
+    """Helpful guidance for clients issuing GET requests on /cache/lookup."""
+    return {
+        "status": "info",
+        "message": "The /cache/lookup endpoint requires an HTTP POST request with a JSON payload.",
+        "example_payload": {
+            "query": "What is the capital of France?",
+            "namespace": "default"
+        },
+        "docs_url": "/docs"
+    }
+
+
+@app.get("/cache", include_in_schema=False)
+def cache_overview():
+    """Convenience endpoint providing cache statistics and sub-route directory."""
+    return {
+        "status": "active",
+        "stats": service.cache.get_stats(),
+        "endpoints": {
+            "stats": "GET /cache/stats",
+            "entries": "GET /cache/entries",
+            "lookup": "POST /cache/lookup",
+            "clear": "DELETE /cache"
+        }
+    }
 
 
 @app.post("/query", response_model=QueryResponse, status_code=status.HTTP_200_OK)

@@ -8,16 +8,67 @@ from fastapi.testclient import TestClient
 from api.main import app, service
 
 
+from smartcache.cache import SemanticCache
+
+
 @pytest.fixture(autouse=True)
-def reset_service():
-    """Reset cache and metrics before each test."""
-    service.cache.invalidate()
+def reset_service(tmp_path):
+    """Reset cache and metrics before each test using isolated database."""
+    test_db = tmp_path / "test_api_cache.db"
+    service.cache = SemanticCache(db_path=test_db, similarity_threshold=0.85)
     service.cost_tracker.reset()
 
 
 @pytest.fixture
 def client():
     return TestClient(app)
+
+
+def test_root_endpoint(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert "endpoints" in data
+    assert "root" in data["endpoints"]
+    assert "documentation_url" in data
+
+
+def test_favicon_endpoint(client):
+    response = client.get("/favicon.ico")
+    assert response.status_code == 204
+
+    head_resp = client.head("/favicon.ico")
+    assert head_resp.status_code == 204
+
+
+def test_route_guidance_endpoints(client):
+    # GET /query should provide structured instructions
+    query_resp = client.get("/query")
+    assert query_resp.status_code == 200
+    assert "POST" in query_resp.json()["message"]
+
+    # GET /cache/lookup should provide instructions
+    lookup_resp = client.get("/cache/lookup")
+    assert lookup_resp.status_code == 200
+    assert "POST" in lookup_resp.json()["message"]
+
+    # GET /cache should return stats and routes overview
+    cache_resp = client.get("/cache")
+    assert cache_resp.status_code == 200
+    assert "stats" in cache_resp.json()
+
+
+def test_cors_preflight(client):
+    response = client.options(
+        "/query",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+        }
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") in ["*", "http://localhost:3000"]
 
 
 def test_health_endpoint(client):
