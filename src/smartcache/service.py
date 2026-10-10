@@ -50,6 +50,10 @@ class SmartCacheService:
         self.provider = llm_provider or get_llm_provider(settings.llm_provider)
         self.cost_tracker = cost_tracker or CostTracker()
 
+    def check_cache_only(self, query: str, namespace: str = "default") -> CacheLookupResult:
+        """Perform a lookup in the cache without triggering generation or fallback."""
+        return self.cache.lookup(query, namespace=namespace)
+
     def process_query(
         self,
         query: str,

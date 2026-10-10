@@ -43,11 +43,13 @@ class CostTracker:
         price_in_large: float = settings.price_per_1k_input_tokens_large,
         price_out_large: float = settings.price_per_1k_output_tokens_large,
     ):
+        import threading
         self.price_in_small = price_in_small
         self.price_out_small = price_out_small
         self.price_in_large = price_in_large
         self.price_out_large = price_out_large
         self.records: List[RequestRecord] = []
+        self._lock = threading.Lock()
 
     def calculate_cost(self, route: str, input_tokens: int, output_tokens: int, is_cache_hit: bool) -> float:
         """
@@ -72,40 +74,43 @@ class CostTracker:
                 output_tokens=record.output_tokens,
                 is_cache_hit=record.cache_hit,
             )
-        self.records.append(record)
+        with self._lock:
+            self.records.append(record)
         return record
 
     def reset(self):
         """Clear recorded requests."""
-        self.records.clear()
+        with self._lock:
+            self.records.clear()
 
     def get_summary(self) -> Dict[str, Any]:
         """Compute aggregate summary metrics over all recorded requests."""
-        if not self.records:
-            return {
-                "total_requests": 0,
-                "cache_hits": 0,
-                "cache_misses": 0,
-                "cache_hit_rate": 0.0,
-                "total_cost_usd": 0.0,
-                "mean_cost_per_request": 0.0,
-                "mean_latency_ms": 0.0,
-                "p50_latency_ms": 0.0,
-                "p95_latency_ms": 0.0,
-                "route_distribution": {},
-                "error_count": 0,
-            }
+        with self._lock:
+            if not self.records:
+                return {
+                    "total_requests": 0,
+                    "cache_hits": 0,
+                    "cache_misses": 0,
+                    "cache_hit_rate": 0.0,
+                    "total_cost_usd": 0.0,
+                    "mean_cost_per_request": 0.0,
+                    "mean_latency_ms": 0.0,
+                    "p50_latency_ms": 0.0,
+                    "p95_latency_ms": 0.0,
+                    "route_distribution": {},
+                    "error_count": 0,
+                }
 
-        total = len(self.records)
-        hits = sum(1 for r in self.records if r.cache_hit)
-        misses = total - hits
-        costs = [r.estimated_cost_usd for r in self.records]
-        latencies_ms = [r.latency_seconds * 1000.0 for r in self.records]
-        errors = sum(1 for r in self.records if r.error is not None)
+            total = len(self.records)
+            hits = sum(1 for r in self.records if r.cache_hit)
+            misses = total - hits
+            costs = [r.estimated_cost_usd for r in self.records]
+            latencies_ms = [r.latency_seconds * 1000.0 for r in self.records]
+            errors = sum(1 for r in self.records if r.error is not None)
 
-        routes: Dict[str, int] = {}
-        for r in self.records:
-            routes[r.selected_route] = routes.get(r.selected_route, 0) + 1
+            routes: Dict[str, int] = {}
+            for r in self.records:
+                routes[r.selected_route] = routes.get(r.selected_route, 0) + 1
 
         return {
             "total_requests": total,

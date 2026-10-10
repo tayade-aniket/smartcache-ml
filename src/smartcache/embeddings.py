@@ -3,19 +3,23 @@ Embedding Utilities for SmartCache ML.
 Loads sentence embedding model and computes normalized vectors and cosine similarity using NumPy.
 """
 
+import threading
 from typing import List, Union
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from smartcache.config import settings
 
 _MODEL_INSTANCE: SentenceTransformer = None
+_MODEL_LOCK = threading.Lock()
 
 
 def get_embedding_model(model_name: str = settings.embedding_model_name) -> SentenceTransformer:
-    """Lazy singleton loader for the sentence embedding model."""
+    """Lazy thread-safe singleton loader for the sentence embedding model."""
     global _MODEL_INSTANCE
     if _MODEL_INSTANCE is None:
-        _MODEL_INSTANCE = SentenceTransformer(model_name)
+        with _MODEL_LOCK:
+            if _MODEL_INSTANCE is None:
+                _MODEL_INSTANCE = SentenceTransformer(model_name)
     return _MODEL_INSTANCE
 
 
@@ -65,9 +69,12 @@ def compute_matrix_cosine_similarities(query_vec: np.ndarray, doc_matrix: np.nda
     Returns:
         np.ndarray of shape (N,) containing similarity scores in range [-1.0, 1.0].
     """
+    if doc_matrix.size == 0:
+        return np.empty((0,), dtype=np.float32)
+
     if doc_matrix.ndim == 1:
         doc_matrix = doc_matrix.reshape(1, -1)
-    
-    # Compute dot product
-    scores = np.dot(doc_matrix, query_vec)
+
+    q = query_vec.reshape(-1)
+    scores = np.dot(doc_matrix, q)
     return scores

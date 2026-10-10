@@ -110,6 +110,9 @@ class SemanticCache:
         self.hit_count = 0
         self.miss_count = 0
 
+        import threading
+        self._lock = threading.Lock()
+
         # In-memory synchronization arrays for high-speed similarity search
         self._ids: List[int] = []
         self._namespaces: List[str] = []
@@ -121,13 +124,13 @@ class SemanticCache:
         self._sync_from_db()
 
     def _get_connection(self):
-        """Context manager to ensure SQLite connection is closed promptly."""
+        """Context manager to ensure SQLite connection is closed promptly and thread-safely."""
         from contextlib import contextmanager
 
         @contextmanager
         def _managed_conn():
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(str(self.db_path))
+            conn = sqlite3.connect(str(self.db_path), check_same_thread=False, timeout=30.0)
             conn.row_factory = sqlite3.Row
             try:
                 yield conn
@@ -138,6 +141,8 @@ class SemanticCache:
 
     def _init_db(self):
         with self._get_connection() as conn:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS cache_entries (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -158,27 +163,30 @@ class SemanticCache:
     def _sync_from_db(self):
         """Load valid active cache entries from SQLite into memory."""
         now = time.time()
-        self._ids.clear()
-        self._namespaces.clear()
-        self._queries.clear()
-        self._responses.clear()
-        self._embeddings.clear()
+        with self._lock:
+            self._ids.clear()
+            self._namespaces.clear()
+            self._queries.clear()
+            self._responses.clear()
+            self._embeddings.clear()
 
-        with self._get_connection() as conn:
-            # Delete expired entries
-            conn.execute("DELETE FROM cache_entries WHERE expires_at < ?", (now,))
-            conn.commit()
+            with self._get_connection() as conn:
+                # Delete expired entries
+                conn.execute("DELETE FROM cache_entries WHERE expires_at < ?", (now,))
+                conn.commit()
 
-            cursor = conn.execute(
-                "SELECT id, namespace, query_text, response_text, embedding FROM cache_entries ORDER BY id ASC"
-            )
-            for row in cursor.fetchall():
-                emb = np.frombuffer(row["embedding"], dtype=np.float32)
-                self._ids.append(row["id"])
-                self._namespaces.append(row["namespace"])
-                self._queries.append(row["query_text"])
-                self._responses.append(row["response_text"])
-                self._embeddings.append(emb)
+                cursor = conn.execute(
+                    "SELECT id, namespace, query_text, response_text, embedding FROM cache_entries ORDER BY id ASC"
+                )
+                for row in cursor.fetchall():
+                    emb = np.frombuffer(row["embedding"], dtype=np.float32)
+                    self._ids.append(row["id"])
+                    self._namespaces.append(row["namespace"])
+                    self._queries.append(row["query_text"])
+                    self._responses.append(row["response_text"])
+                    self._embeddings.append(emb)
+
+
 
     def lookup(
         self,
@@ -199,62 +207,73 @@ class SemanticCache:
 
         # 2. Measure Vector Search Latency
         t_search_start = time.perf_counter()
-        total_items = len(self._ids)
 
-        if total_items == 0:
-            self.miss_count += 1
+        with self._lock:
+            total_items = len(self._ids)
+
+            if total_items == 0:
+                self.miss_count += 1
+                search_latency = time.perf_counter() - t_search_start
+                return CacheLookupResult(
+                    hit=False,
+                    embedding_latency=embedding_latency,
+                    search_latency=search_latency,
+                    total_lookup_latency=embedding_latency + search_latency
+                )
+
+            # Filter by namespace
+            ns_indices = [i for i, ns in enumerate(self._namespaces) if ns == namespace]
+            if not ns_indices:
+                self.miss_count += 1
+                search_latency = time.perf_counter() - t_search_start
+                return CacheLookupResult(
+                    hit=False,
+                    embedding_latency=embedding_latency,
+                    search_latency=search_latency,
+                    total_lookup_latency=embedding_latency + search_latency
+                )
+
+            sub_matrix = np.array([self._embeddings[i] for i in ns_indices], dtype=np.float32)
+            sim_scores = compute_matrix_cosine_similarities(query_vec, sub_matrix)
+
+            best_idx_in_sub = int(np.argmax(sim_scores))
+            best_score = float(sim_scores[best_idx_in_sub])
+            best_global_idx = ns_indices[best_idx_in_sub]
+
             search_latency = time.perf_counter() - t_search_start
-            return CacheLookupResult(
-                hit=False,
-                embedding_latency=embedding_latency,
-                search_latency=search_latency,
-                total_lookup_latency=embedding_latency + search_latency
-            )
+            total_latency = embedding_latency + search_latency
 
-        # Filter by namespace
-        ns_indices = [i for i, ns in enumerate(self._namespaces) if ns == namespace]
-        if not ns_indices:
-            self.miss_count += 1
-            search_latency = time.perf_counter() - t_search_start
-            return CacheLookupResult(
-                hit=False,
-                embedding_latency=embedding_latency,
-                search_latency=search_latency,
-                total_lookup_latency=embedding_latency + search_latency
-            )
+            if best_score >= threshold:
+                # Hit!
+                self.hit_count += 1
+                entry_id = self._ids[best_global_idx]
+                matched_query = self._queries[best_global_idx]
+                matched_response = self._responses[best_global_idx]
+                is_hit = True
+            else:
+                self.miss_count += 1
+                entry_id = None
+                matched_query = self._queries[best_global_idx]
+                matched_response = None
+                is_hit = False
 
-        sub_matrix = np.array([self._embeddings[i] for i in ns_indices], dtype=np.float32)
-        sim_scores = compute_matrix_cosine_similarities(query_vec, sub_matrix)
-
-        best_idx_in_sub = int(np.argmax(sim_scores))
-        best_score = float(sim_scores[best_idx_in_sub])
-        best_global_idx = ns_indices[best_idx_in_sub]
-
-        search_latency = time.perf_counter() - t_search_start
-        total_latency = embedding_latency + search_latency
-
-        if best_score >= threshold:
-            # Hit! Update access stats in DB
-            self.hit_count += 1
-            entry_id = self._ids[best_global_idx]
+        if is_hit:
             self._update_access(entry_id)
-
             return CacheLookupResult(
                 hit=True,
-                response=self._responses[best_global_idx],
+                response=matched_response,
                 similarity_score=best_score,
-                matched_query=self._queries[best_global_idx],
+                matched_query=matched_query,
                 cache_id=entry_id,
                 embedding_latency=embedding_latency,
                 search_latency=search_latency,
                 total_lookup_latency=total_latency
             )
 
-        self.miss_count += 1
         return CacheLookupResult(
             hit=False,
             similarity_score=best_score,
-            matched_query=self._queries[best_global_idx],
+            matched_query=matched_query,
             embedding_latency=embedding_latency,
             search_latency=search_latency,
             total_lookup_latency=total_latency
@@ -295,33 +314,34 @@ class SemanticCache:
         ttl = ttl_seconds if ttl_seconds is not None else self.ttl_seconds
         expires_at = now + ttl
 
-        # Evict oldest accessed entry if at capacity
-        if len(self._ids) >= self.max_cache_size:
-            self._evict_lru()
+        with self._lock:
+            # Evict oldest accessed entry if at capacity
+            if len(self._ids) >= self.max_cache_size:
+                self._evict_lru()
 
-        with self._get_connection() as conn:
-            cursor = conn.execute(
-                """
-                INSERT INTO cache_entries
-                (namespace, query_text, response_text, embedding, created_at, expires_at, access_count, last_accessed_at)
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-                """,
-                (namespace, query, response, embedding.tobytes(), now, expires_at, now)
-            )
-            new_id = cursor.lastrowid
-            conn.commit()
+            with self._get_connection() as conn:
+                cursor = conn.execute(
+                    """
+                    INSERT INTO cache_entries
+                    (namespace, query_text, response_text, embedding, created_at, expires_at, access_count, last_accessed_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+                    """,
+                    (namespace, query, response, embedding.tobytes(), now, expires_at, now)
+                )
+                new_id = cursor.lastrowid
+                conn.commit()
 
-        # Update in-memory structures
-        self._ids.append(new_id)
-        self._namespaces.append(namespace)
-        self._queries.append(query)
-        self._responses.append(response)
-        self._embeddings.append(embedding)
+            # Update in-memory structures
+            self._ids.append(new_id)
+            self._namespaces.append(namespace)
+            self._queries.append(query)
+            self._responses.append(response)
+            self._embeddings.append(embedding)
 
         return True
 
     def _evict_lru(self):
-        """Evict the least recently accessed item."""
+        """Evict the least recently accessed item. Assumes caller holds self._lock."""
         with self._get_connection() as conn:
             cursor = conn.execute("SELECT id FROM cache_entries ORDER BY last_accessed_at ASC LIMIT 1")
             row = cursor.fetchone()
@@ -339,27 +359,52 @@ class SemanticCache:
 
     def invalidate(self, namespace: Optional[str] = None):
         """Invalidate all cache entries or entries belonging to a given namespace."""
+        with self._lock:
+            with self._get_connection() as conn:
+                if namespace:
+                    conn.execute("DELETE FROM cache_entries WHERE namespace = ?", (namespace,))
+                else:
+                    conn.execute("DELETE FROM cache_entries")
+                conn.commit()
+            self._sync_from_db()
+            self.hit_count = 0
+            self.miss_count = 0
+
+    def get_entries(self, namespace: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """Retrieve recent entries for inspection (without embedding blobs)."""
         with self._get_connection() as conn:
             if namespace:
-                conn.execute("DELETE FROM cache_entries WHERE namespace = ?", (namespace,))
+                cursor = conn.execute(
+                    """
+                    SELECT id, namespace, query_text, response_text, created_at, expires_at, access_count, last_accessed_at
+                    FROM cache_entries WHERE namespace = ?
+                    ORDER BY id DESC LIMIT ?
+                    """,
+                    (namespace, limit)
+                )
             else:
-                conn.execute("DELETE FROM cache_entries")
-            conn.commit()
-        self._sync_from_db()
-        self.hit_count = 0
-        self.miss_count = 0
+                cursor = conn.execute(
+                    """
+                    SELECT id, namespace, query_text, response_text, created_at, expires_at, access_count, last_accessed_at
+                    FROM cache_entries
+                    ORDER BY id DESC LIMIT ?
+                    """,
+                    (limit,)
+                )
+            return [dict(row) for row in cursor.fetchall()]
 
     def get_stats(self) -> Dict[str, Any]:
         """Return cache health and usage statistics."""
-        total = self.hit_count + self.miss_count
-        hit_rate = (self.hit_count / total) if total > 0 else 0.0
-        return {
-            "total_cached_entries": len(self._ids),
-            "hit_count": self.hit_count,
-            "miss_count": self.miss_count,
-            "hit_rate": round(hit_rate, 4),
-            "similarity_threshold": self.similarity_threshold,
-            "max_cache_size": self.max_cache_size,
-            "ttl_seconds": self.ttl_seconds,
-            "db_path": str(self.db_path),
-        }
+        with self._lock:
+            total = self.hit_count + self.miss_count
+            hit_rate = (self.hit_count / total) if total > 0 else 0.0
+            return {
+                "total_cached_entries": len(self._ids),
+                "hit_count": self.hit_count,
+                "miss_count": self.miss_count,
+                "hit_rate": round(hit_rate, 4),
+                "similarity_threshold": self.similarity_threshold,
+                "max_cache_size": self.max_cache_size,
+                "ttl_seconds": self.ttl_seconds,
+                "db_path": str(self.db_path),
+            }
