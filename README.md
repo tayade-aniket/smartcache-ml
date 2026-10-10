@@ -8,7 +8,7 @@ sdk_version: "1.28.0"
 app_file: app.py
 pinned: false
 license: mit
-short_description: Semantic Caching and Cost-Aware LLM Routing Analytics Dashboard
+short_description: Semantic Caching & LLM Cost-Aware Routing Monitor
 ---
 
 # SmartCache ML: Semantic Caching and Cost-Aware LLM Routing
