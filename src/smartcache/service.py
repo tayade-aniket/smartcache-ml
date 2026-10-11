@@ -152,7 +152,7 @@ class SmartCacheService:
 
         # Step 4: Populate Cache for future hits (if cacheable)
         if is_cacheable:
-            query_vec = encode_query(query, normalize=True)
+            query_vec = lookup_res.query_vector if (lookup_res is not None and lookup_res.query_vector is not None) else encode_query(query, normalize=True)
             self.cache.store(query, answer, embedding=query_vec, namespace=namespace, is_cacheable=True)
 
         total_latency = time.perf_counter() - overall_start

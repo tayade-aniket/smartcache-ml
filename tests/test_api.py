@@ -12,10 +12,9 @@ from smartcache.cache import SemanticCache
 
 
 @pytest.fixture(autouse=True)
-def reset_service(tmp_path):
-    """Reset cache and metrics before each test using isolated database."""
-    test_db = tmp_path / "test_api_cache.db"
-    service.cache = SemanticCache(db_path=test_db, similarity_threshold=0.85)
+def reset_service():
+    """Reset cache and metrics before each test."""
+    service.cache.invalidate()
     service.cost_tracker.reset()
 
 
@@ -32,6 +31,20 @@ def test_root_endpoint(client):
     assert "endpoints" in data
     assert "root" in data["endpoints"]
     assert "documentation_url" in data
+
+
+def test_dashboard_endpoint(client):
+    # Test dedicated /dashboard route
+    response = client.get("/dashboard")
+    assert response.status_code == 200
+    assert "SmartCache ML" in response.text
+    assert "Complete API Route Directory" in response.text
+
+    # Test browser navigation to / (Accept: text/html)
+    html_resp = client.get("/", headers={"Accept": "text/html,application/xhtml+xml"})
+    assert html_resp.status_code == 200
+    assert "SmartCache ML" in html_resp.text
+    assert "Live Query & Caching Playground" in html_resp.text
 
 
 def test_favicon_endpoint(client):

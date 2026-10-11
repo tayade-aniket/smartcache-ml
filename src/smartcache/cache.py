@@ -24,6 +24,7 @@ class CacheLookupResult:
     embedding_latency: float = 0.0
     search_latency: float = 0.0
     total_lookup_latency: float = 0.0
+    query_vector: Optional[np.ndarray] = None
 
 
 class ExactMatchCache:
@@ -221,7 +222,8 @@ class SemanticCache:
                     hit=False,
                     embedding_latency=embedding_latency,
                     search_latency=search_latency,
-                    total_lookup_latency=embedding_latency + search_latency
+                    total_lookup_latency=embedding_latency + search_latency,
+                    query_vector=query_vec,
                 )
 
             # Filter by namespace
@@ -233,7 +235,8 @@ class SemanticCache:
                     hit=False,
                     embedding_latency=embedding_latency,
                     search_latency=search_latency,
-                    total_lookup_latency=embedding_latency + search_latency
+                    total_lookup_latency=embedding_latency + search_latency,
+                    query_vector=query_vec,
                 )
 
             sub_matrix = np.array([self._embeddings[i] for i in ns_indices], dtype=np.float32)
@@ -270,7 +273,8 @@ class SemanticCache:
                 cache_id=entry_id,
                 embedding_latency=embedding_latency,
                 search_latency=search_latency,
-                total_lookup_latency=total_latency
+                total_lookup_latency=total_latency,
+                query_vector=query_vec,
             )
 
         return CacheLookupResult(
@@ -279,7 +283,8 @@ class SemanticCache:
             matched_query=matched_query,
             embedding_latency=embedding_latency,
             search_latency=search_latency,
-            total_lookup_latency=total_latency
+            total_lookup_latency=total_latency,
+            query_vector=query_vec,
         )
 
     def _update_access(self, entry_id: int):

@@ -24,7 +24,8 @@ COPY . .
 # Install package in editable mode
 RUN pip install --no-cache-dir -e .
 
+ENV PORT=8000
 EXPOSE 8000 8501
 
-# Default launch command: FastAPI
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default launch command: FastAPI (binds to Render's dynamic $PORT or 8000)
+CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT}"]
