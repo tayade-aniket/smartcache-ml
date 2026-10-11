@@ -18,6 +18,13 @@ def get_embedding_model(model_name: str = settings.embedding_model_name):
     if _MODEL_INSTANCE is None:
         with _MODEL_LOCK:
             if _MODEL_INSTANCE is None:
+                try:
+                    import torch
+                    torch.set_num_threads(1)
+                    if hasattr(torch, "set_num_interop_threads"):
+                        torch.set_num_interop_threads(1)
+                except Exception:
+                    pass
                 from sentence_transformers import SentenceTransformer
                 try:
                     _MODEL_INSTANCE = SentenceTransformer(model_name, local_files_only=True)

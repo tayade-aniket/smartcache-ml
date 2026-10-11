@@ -42,6 +42,16 @@ app.add_middleware(
 service = SmartCacheService()
 
 
+@app.on_event("startup")
+def prewarm_models():
+    """Pre-warm sentence embedding model on server boot so user queries execute instantly without cold-start delay."""
+    try:
+        from smartcache.embeddings import encode_query
+        encode_query("Warmup query for SmartCache ML", normalize=True)
+    except Exception as e:
+        print(f"[SmartCache] Startup pre-warm notice: {e}")
+
+
 # ---------------------------------------------------------------------------
 # Pydantic Schemas
 # ---------------------------------------------------------------------------

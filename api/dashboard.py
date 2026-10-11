@@ -4,9 +4,12 @@ Served directly at http://127.0.0.1:8000/ to showcase project capabilities,
 architecture overview, live query playground, and complete interactive route catalog.
 """
 
+import os
+
 def get_dashboard_html() -> str:
     """Generate self-contained, high-performance HTML/CSS/JS dashboard."""
-    return """<!DOCTYPE html>
+    streamlit_url = os.getenv("STREAMLIT_URL", "https://huggingface.co/spaces/t-anni/Smart-cache")
+    template = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -736,7 +739,7 @@ def get_dashboard_html() -> str:
                     <span>Service Online</span>
                 </div>
                 <a href="/docs" class="btn-link" target="_blank">📖 Swagger Docs</a>
-                <a href="http://127.0.0.1:8501" class="btn-link btn-primary" target="_blank" title="Streamlit Telemetry Monitor">📊 Streamlit UI</a>
+                <a href="__STREAMLIT_URL__" class="btn-link btn-primary" target="_blank" rel="noopener noreferrer" title="Live Streamlit Telemetry Monitor">📊 Streamlit UI ↗</a>
             </div>
         </div>
     </header>
@@ -870,7 +873,7 @@ def get_dashboard_html() -> str:
                         </div>
                     </div>
                     <div class="route-action">
-                        <button class="btn-try" onclick="testRoute('query')">Try Route</button>
+                        <button class="btn-try" onclick="testRoute('query', this)">Try Route</button>
                     </div>
                 </div>
                 <div id="out-query" class="route-output"></div>
@@ -885,7 +888,7 @@ def get_dashboard_html() -> str:
                         </div>
                     </div>
                     <div class="route-action">
-                        <button class="btn-try" onclick="testRoute('health')">Try Route</button>
+                        <button class="btn-try" onclick="testRoute('health', this)">Try Route</button>
                     </div>
                 </div>
                 <div id="out-health" class="route-output"></div>
@@ -900,7 +903,7 @@ def get_dashboard_html() -> str:
                         </div>
                     </div>
                     <div class="route-action">
-                        <button class="btn-try" onclick="testRoute('metrics')">Try Route</button>
+                        <button class="btn-try" onclick="testRoute('metrics', this)">Try Route</button>
                     </div>
                 </div>
                 <div id="out-metrics" class="route-output"></div>
@@ -915,7 +918,7 @@ def get_dashboard_html() -> str:
                         </div>
                     </div>
                     <div class="route-action">
-                        <button class="btn-try" onclick="testRoute('cache_lookup')">Try Route</button>
+                        <button class="btn-try" onclick="testRoute('cache_lookup', this)">Try Route</button>
                     </div>
                 </div>
                 <div id="out-cache_lookup" class="route-output"></div>
@@ -930,7 +933,7 @@ def get_dashboard_html() -> str:
                         </div>
                     </div>
                     <div class="route-action">
-                        <button class="btn-try" onclick="testRoute('cache_entries')">Try Route</button>
+                        <button class="btn-try" onclick="testRoute('cache_entries', this)">Try Route</button>
                     </div>
                 </div>
                 <div id="out-cache_entries" class="route-output"></div>
@@ -945,7 +948,7 @@ def get_dashboard_html() -> str:
                         </div>
                     </div>
                     <div class="route-action">
-                        <button class="btn-try" onclick="testRoute('cache_stats')">Try Route</button>
+                        <button class="btn-try" onclick="testRoute('cache_stats', this)">Try Route</button>
                     </div>
                 </div>
                 <div id="out-cache_stats" class="route-output"></div>
@@ -960,7 +963,7 @@ def get_dashboard_html() -> str:
                         </div>
                     </div>
                     <div class="route-action">
-                        <button class="btn-try" onclick="testRoute('cache_delete')">Try Route</button>
+                        <button class="btn-try" onclick="testRoute('cache_delete', this)">Try Route</button>
                     </div>
                 </div>
                 <div id="out-cache_delete" class="route-output"></div>
@@ -1027,8 +1030,8 @@ def get_dashboard_html() -> str:
             <div class="footer-links">
                 <a href="/docs">Swagger Documentation</a>
                 <a href="/metrics">Raw Telemetry</a>
-                <a href="http://127.0.0.1:8501">Streamlit Dashboard</a>
-                <a href="https://github.com" target="_blank">Project Source</a>
+                <a href="__STREAMLIT_URL__" target="_blank" rel="noopener noreferrer">Streamlit Dashboard ↗</a>
+                <a href="https://github.com/tayade-aniket/smartcache-ml" target="_blank" rel="noopener noreferrer">Project Source ↗</a>
             </div>
             <p>SmartCache ML — Production-Grade Semantic Caching & Cost-Aware Model Routing Engine</p>
         </div>
@@ -1133,15 +1136,24 @@ def get_dashboard_html() -> str:
         }
 
         // Test individual route and display output
-        async function testRoute(routeKey) {
+        async function testRoute(routeKey, btn) {
             const outDiv = document.getElementById("out-" + routeKey);
-            if (outDiv.style.display === "block") {
+            if (outDiv.style.display === "block" && outDiv.dataset.loading !== "true") {
                 outDiv.style.display = "none";
                 return;
             }
 
             outDiv.style.display = "block";
-            outDiv.innerText = "Executing request...";
+            outDiv.dataset.loading = "true";
+            outDiv.innerHTML = `<span style="color: var(--orange-warm);">⚡ Dispatching request...</span>`;
+
+            const origText = btn ? btn.innerText : "";
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "Running...";
+            }
+
+            const startTime = performance.now();
 
             try {
                 let res;
@@ -1170,10 +1182,18 @@ def get_dashboard_html() -> str:
                     fetchStats();
                 }
 
+                const elapsedMs = Math.round(performance.now() - startTime);
                 const json = await res.json();
-                outDiv.innerText = JSON.stringify(json, null, 2);
+                outDiv.innerText = `// HTTP ${res.status} ${res.statusText} • Latency: ${elapsedMs}ms\n` + JSON.stringify(json, null, 2);
             } catch (err) {
-                outDiv.innerText = "Error: " + err;
+                const elapsedMs = Math.round(performance.now() - startTime);
+                outDiv.innerText = `// Request Failed (${elapsedMs}ms)\nError: ${err}`;
+            } finally {
+                outDiv.dataset.loading = "false";
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = origText || "Try Route";
+                }
             }
         }
 
@@ -1185,3 +1205,5 @@ def get_dashboard_html() -> str:
 </body>
 </html>
 """
+    return template.replace("__STREAMLIT_URL__", streamlit_url)
+

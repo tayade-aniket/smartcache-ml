@@ -21,10 +21,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source
 COPY . .
 
-# Install package in editable mode
-RUN pip install --no-cache-dir -e .
+# Pre-download embedding model during build so container queries are instant at runtime
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 
 ENV PORT=8000
+ENV OMP_NUM_THREADS=1
+ENV STREAMLIT_URL=https://huggingface.co/spaces/t-anni/Smart-cache
+
 EXPOSE 8000 8501
 
 # Default launch command: FastAPI (binds to Render's dynamic $PORT or 8000)
